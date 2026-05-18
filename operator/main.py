@@ -35,9 +35,11 @@ Key differences from the Go version
 """
 
 import logging
+import time
 
 import kopf
 from kubernetes import client, config
+from kubernetes.dynamic import DynamicClient
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +213,75 @@ def create_or_patch_ingress(net_v1, name, namespace, ingress):
             logger.info("ingress patched: %s/%s", namespace, name)
         else:
             raise
+
+
+# ---------------------------------------------------------------------------
+# Child-resource watcher
+# ---------------------------------------------------------------------------
+# kubebuilder equivalent: ctrl.NewControllerManagedBy(mgr).Owns(&appsv1.Deployment{})
+#
+# controller-runtime automatically re-queues the parent CR whenever an owned
+# child resource changes or is deleted. kopf has no built-in "Owns" — we must
+# explicitly watch child resource types and patch the parent CR to trigger a
+# reconcile event.
+#
+# We only care about DELETED events: if someone deletes the Deployment, Service,
+# or Ingress that the operator created, we want it recreated immediately.
+
+def _touch_parent_cr(namespace: str, name: str):
+    """
+    Patch the parent ColourWave CR with a timestamp annotation.
+    kopf sees the resulting update event and calls reconcile().
+    """
+    try:
+        config.load_incluster_config()
+    except config.ConfigException:
+        config.load_kube_config()
+    dyn = DynamicClient(client.ApiClient())
+    crd_api = dyn.resources.get(
+        api_version="colourwave-python.lizardnode.com/v1alpha1",
+        kind="ColourWave",
+    )
+    crd_api.patch(
+        name=name,
+        namespace=namespace,
+        body={"metadata": {"annotations": {
+            "colourwave-python.lizardnode.com/reconcile-trigger": str(int(time.time())),
+        }}},
+        content_type="application/merge-patch+json",
+    )
+    logger.info("touched parent CR %s/%s to trigger reconcile", namespace, name)
+
+
+def _requeue_if_owned(resource_kind: str, meta: dict, namespace: str):
+    """Check ownerReferences and re-queue the parent CR if this resource is owned by a ColourWave."""
+    for ref in (meta.get("ownerReferences") or []):
+        if (ref.get("kind") == "ColourWave"
+                and ref.get("apiVersion", "").startswith("colourwave-python")):
+            logger.info("%s deleted — re-queuing parent ColourWave %s/%s",
+                        resource_kind, namespace, ref["name"])
+            try:
+                _touch_parent_cr(namespace, ref["name"])
+            except Exception as e:
+                logger.error("failed to re-queue parent CR: %s", e)
+
+
+@kopf.on.event("apps", "v1", "deployments")
+def on_deployment_event(type, meta, namespace, **kwargs):
+    if type == "DELETED":
+        _requeue_if_owned("Deployment", meta, namespace)
+
+
+@kopf.on.event("", "v1", "services")
+def on_service_event(type, meta, namespace, **kwargs):
+    if type == "DELETED":
+        _requeue_if_owned("Service", meta, namespace)
+
+
+@kopf.on.event("networking.k8s.io", "v1", "ingresses")
+def on_ingress_event(type, meta, namespace, **kwargs):
+    if type == "DELETED":
+        _requeue_if_owned("Ingress", meta, namespace)
 
 
 # ---------------------------------------------------------------------------
