@@ -20,4 +20,4 @@ COPY main.py .
 # --all-namespaces: watch ColourWave CRs in every namespace (mirrors
 # kubebuilder's default cluster-scoped watch behaviour).
 # --liveness=http:8080/healthz: expose a health endpoint for Kubernetes probes.
-CMD ["kopf", "run", "--all-namespaces", "--liveness=http:8080/healthz", "main.py"]
+CMD ["kopf", "run", "--all-namespaces", "--liveness=http://0.0.0.0:8080/healthz", "main.py"]
