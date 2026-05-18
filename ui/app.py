@@ -174,7 +174,7 @@ def list_tags():
     Python uses the `requests` library: cleaner API, no manual body close.
     """
     app.logger.info("request received", extra={"method": request.method, "path": "/api/tags"})
-    url = f"{HARBOR_URL}/api/v2.0/projects/colourwave/repositories/app/artifacts?with_tag=true&page_size=50"
+    url = f"{HARBOR_URL}/api/v2.0/projects/colourwave/repositories/app-py/artifacts?with_tag=true&page_size=50"
     headers = {}
     if HARBOR_TOKEN:
         headers["Authorization"] = f"Basic {HARBOR_TOKEN}"

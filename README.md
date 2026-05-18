@@ -28,34 +28,32 @@ Open the repo in VS Code, choose **Reopen in Container**, and the devcontainer
 will install all three `requirements.txt` files automatically.
 
 ```bash
-# App
-cd app && flask run --port 8080
-
-# Operator (needs a cluster with the CRD installed)
-cd operator && kopf run --all-namespaces main.py
-
-# UI (needs a cluster to talk to)
-cd ui && flask run --port 8080
+make dev-app       # demo app on :8080  (with a default colour and version)
+make dev-ui        # control-panel UI on :8081  (talks to current kubeconfig cluster)
+make dev-operator  # kopf operator against current cluster (CRD must be installed first)
 ```
+
+`dev-app` and `dev-ui` use different ports so both can run at the same time.
 
 ---
 
 ## Building and pushing images
 
-Each component builds from its own directory (no shared module like Go's `go.mod`):
+```bash
+make build                  # build all three images
+make push                   # push all three to Harbor
+make release                # build + push in one step
+make release TAG=v0.2.0     # cut a new version
+```
+
+Individual targets are also available: `build-app`, `build-operator`, `build-ui`,
+`push-app`, `push-operator`, `push-ui`, `release-app`, etc.
+
+The default registry is `harbor.lizardnode.com/colourwave` and platform is
+`linux/amd64`. Override either on the command line:
 
 ```bash
-# App
-podman build --platform linux/amd64 -t harbor.lizardnode.com/colourwave/app-py:v0.1.0 app/
-podman push harbor.lizardnode.com/colourwave/app-py:v0.1.0
-
-# Operator
-podman build --platform linux/amd64 -t harbor.lizardnode.com/colourwave/operator-py:v0.1.0 operator/
-podman push harbor.lizardnode.com/colourwave/operator-py:v0.1.0
-
-# UI
-podman build --platform linux/amd64 -t harbor.lizardnode.com/colourwave/ui-py:v0.1.0 ui/
-podman push harbor.lizardnode.com/colourwave/ui-py:v0.1.0
+make build REGISTRY=my.registry.io/colourwave PLATFORM=linux/arm64
 ```
 
 > **Note:** `--platform linux/amd64` is required when building on Apple Silicon.

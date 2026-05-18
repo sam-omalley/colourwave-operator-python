@@ -41,7 +41,7 @@ from kubernetes import client, config
 
 logger = logging.getLogger(__name__)
 
-IMAGE_REPO = "harbor.lizardnode.com/colourwave/app"
+IMAGE_REPO = "harbor.lizardnode.com/colourwave/app-py"
 DOMAIN = "lizardnode.com"
 
 
