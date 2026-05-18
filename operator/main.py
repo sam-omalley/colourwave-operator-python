@@ -95,6 +95,9 @@ def build_deployment(name: str, namespace: str, spec: dict, body: dict) -> clien
             template=client.V1PodTemplateSpec(
                 metadata=client.V1ObjectMeta(labels={"app": name}),
                 spec=client.V1PodSpec(
+                    # colourwave-app-py has RBAC to list ColourWave CRs and
+                    # pods — required by the app's monitoring dashboard.
+                    service_account_name="colourwave-app-py",
                     containers=[
                         client.V1Container(
                             name="colourwave",
@@ -103,6 +106,10 @@ def build_deployment(name: str, namespace: str, spec: dict, body: dict) -> clien
                                 client.V1EnvVar(name="VERSION", value=version),
                                 client.V1EnvVar(name="COLOUR", value=colour),
                             ],
+                            resources=client.V1ResourceRequirements(
+                                requests={"cpu": "10m", "memory": "96Mi"},
+                                limits={"cpu": "100m", "memory": "192Mi"},
+                            ),
                         )
                     ]
                 ),
