@@ -95,9 +95,6 @@ def build_deployment(name: str, namespace: str, spec: dict, body: dict) -> clien
             template=client.V1PodTemplateSpec(
                 metadata=client.V1ObjectMeta(labels={"app": name}),
                 spec=client.V1PodSpec(
-                    # colourwave-app-py has RBAC to list ColourWave CRs and
-                    # pods — required by the app's monitoring dashboard.
-                    service_account_name="colourwave-app-py",
                     containers=[
                         client.V1Container(
                             name="colourwave",

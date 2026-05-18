@@ -10,7 +10,7 @@
 # Push:
 #   podman push harbor.lizardnode.com/colourwave/app-py:v0.1.0
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 

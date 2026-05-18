@@ -99,6 +99,34 @@ def colourwave_api():
     )
 
 
+def core_client() -> client.CoreV1Api:
+    """Return a CoreV1Api client using the same config-loading logic."""
+    try:
+        config.load_incluster_config()
+    except config.ConfigException:
+        config.load_kube_config()
+    return client.CoreV1Api()
+
+
+def pod_status(pod) -> str:
+    """Reduce a pod object to a simple display status string."""
+    if pod.metadata.deletion_timestamp:
+        return "terminating"
+    phase = pod.status.phase or "Unknown"
+    if phase == "Running":
+        statuses = pod.status.container_statuses or []
+        if statuses and all(cs.ready for cs in statuses):
+            return "running"
+        return "starting"
+    if phase == "Pending":
+        return "pending"
+    if phase in ("Failed", "Unknown"):
+        return "error"
+    if phase == "Succeeded":
+        return "stopped"
+    return "unknown"
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -163,6 +191,47 @@ def patch_colourwave():
         content_type="application/merge-patch+json",
     )
     return "", 200
+
+
+@app.route("/api/pods")
+def list_pods():
+    """
+    Return live pod status grouped by ColourWave instance name.
+    Polled every 2 s by the UI to show the ripple effect of changes.
+
+    Response shape: { "<cr-name>": [{name, status, restarts}, ...], ... }
+    """
+    app.logger.info("request received", extra={"method": request.method, "path": "/api/pods"})
+    try:
+        dyn = dynamic_client()
+        core_v1 = core_client()
+        crd_api = dyn.resources.get(
+            api_version="colourwave-python.lizardnode.com/v1alpha1",
+            kind="ColourWave",
+        )
+        result = {}
+        for item in crd_api.get().items:
+            name = item.metadata.name
+            namespace = item.metadata.namespace
+            pods = core_v1.list_namespaced_pod(
+                namespace=namespace,
+                label_selector=f"app={name}",
+            )
+            result[name] = [
+                {
+                    "name": pod.metadata.name,
+                    "status": pod_status(pod),
+                    "restarts": sum(
+                        cs.restart_count
+                        for cs in (pod.status.container_statuses or [])
+                    ),
+                }
+                for pod in pods.items
+            ]
+        return jsonify(result)
+    except Exception as e:
+        app.logger.error("failed to list pods: %s", e)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/tags")

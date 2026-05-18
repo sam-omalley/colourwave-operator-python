@@ -8,7 +8,7 @@
 # Push:
 #   podman push harbor.lizardnode.com/colourwave/operator-py:v0.1.0
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 

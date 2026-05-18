@@ -10,7 +10,10 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     ::-webkit-scrollbar { width: 4px; height: 4px; background: #111; }
     ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    @keyframes pulse       { 0%,100%{opacity:1}      50%{opacity:0.4} }
+    @keyframes chip-appear { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes chip-leave  { from{opacity:1;transform:scale(1)}         to{opacity:0;transform:scale(.85)} }
 
     body {
       font-family: 'IBM Plex Mono', monospace;
@@ -22,7 +25,7 @@
 
     .container { max-width: 860px; margin: 0 auto; }
 
-    /* Header */
+    /* ── Header ───────────────────────────────────────────── */
     .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
     .header-left { display: flex; align-items: center; gap: 14px; }
     .header-ctrl { font-size: 11px; color: #888; letter-spacing: 0.15em; }
@@ -31,7 +34,7 @@
     .header-ver { font-size: 10px; color: #666; }
     .header-rule { height: 1px; background: linear-gradient(90deg, #1f1f1f 0%, #111 100%); margin-bottom: 24px; }
 
-    /* Filter */
+    /* ── Filter ───────────────────────────────────────────── */
     .filter-input {
       width: 100%; background: #0a0a0a; border: 1px solid #1f1f1f;
       color: #e2e8f0; padding: 8px 14px; border-radius: 4px;
@@ -40,21 +43,31 @@
     }
     .filter-input:focus { border-color: #333; }
 
-    /* Cards */
+    /* ── Cards ────────────────────────────────────────────── */
     .card {
-      background: #0a0a0a; border: 1px solid #1f1f1f;
-      border-radius: 8px; padding: 22px; margin-bottom: 16px;
+      background: #0a0a0a;
+      border: 1px solid #1f1f1f;
+      border-left: 3px solid #444;   /* overridden per-instance via JS */
+      border-radius: 8px;
+      padding: 22px;
+      margin-bottom: 16px;
     }
 
     .card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
-    .card-name { color: #f0f0f0; font-size: 15px; font-weight: 700; margin-right: 10px; text-decoration: none; }
+    .card-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .card-name { color: #f0f0f0; font-size: 15px; font-weight: 700; text-decoration: none; }
     .card-name:hover { color: #60a5fa; text-decoration: underline; }
-    .card-meta { font-size: 11px; color: #999; display: flex; flex-wrap: wrap; gap: 0; margin-top: 4px; }
+    .card-version { font-size: 11px; color: #a78bfa; letter-spacing: 0.04em; }
+    .card-meta { font-size: 11px; color: #999; display: flex; flex-wrap: wrap; gap: 0; margin-top: 6px; }
     .card-meta-sep { color: #555; margin: 0 8px; }
-    .card-updated { font-size: 10px; color: #666; text-align: right; line-height: 1.6; }
-    .card-name-row { display: flex; align-items: center; }
 
-    /* Status badge */
+    /* Replica tally — top-right of card */
+    .card-tally { text-align: right; flex-shrink: 0; margin-left: 12px; }
+    .tally-count { font-size: 16px; font-weight: 700; color: #888; line-height: 1; }
+    .tally-count.tally-warn { color: #fbbf24; }
+    .tally-label { font-size: 9px; color: #444; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 3px; }
+
+    /* ── Status badges ────────────────────────────────────── */
     .badge {
       display: inline-flex; align-items: center; gap: 6px;
       font-size: 11px; font-weight: 600; padding: 3px 10px;
@@ -73,7 +86,7 @@
     .badge-updating { background: #0d1a2b; border: 1px solid #1a3d5c; color: #60a5fa; }
     .badge-updating .badge-dot { background: #3b82f6; box-shadow: 0 0 6px #3b82f6; animation: pulse 2s infinite; }
 
-    /* Buttons */
+    /* ── Buttons ──────────────────────────────────────────── */
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .btn {
       background: transparent; border-radius: 4px; cursor: pointer;
@@ -86,13 +99,12 @@
     .btn-start   { border: 1px solid #22c55e; color: #22c55e; }
     .btn-stop    { border: 1px solid #ef4444; color: #ef4444; }
     .btn-version { border: 1px solid #60a5fa; color: #60a5fa; }
-    .btn-apply   { border: 1px solid #3b82f6; color: #60a5fa; }
     .btn-cancel  { background: #1a1a1a; border: 1px solid #333; color: #aaa; }
     .btn-confirm { background: #1a0808; border: 1px solid #ef4444; color: #ef4444; }
     .btn-confirm-blue { background: #0d1a2b; border: 1px solid #3b82f6; color: #60a5fa; }
     .btn-confirm-blue:disabled { background: #111 !important; border-color: #222 !important; color: #444 !important; cursor: not-allowed; }
 
-    /* Version picker */
+    /* ── Version picker ───────────────────────────────────── */
     .version-panel {
       background: #0f0f0f; border: 1px solid #2a2a2a;
       border-radius: 6px; padding: 14px; margin-bottom: 14px;
@@ -108,7 +120,58 @@
     .replicas-input { width: auto; min-width: 80px; }
     .panel-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 
-    /* Modal */
+    /* ── Pod chips ────────────────────────────────────────── */
+    .pods-row {
+      border-top: 1px solid #141414;
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+    .pods-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 24px;
+      align-items: center;
+    }
+
+    .no-pods { font-size: 10px; color: #333; letter-spacing: 0.08em; }
+
+    .pod-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid #333; border-radius: 3px;
+      padding: 4px 9px;
+      font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+      cursor: default; user-select: none;
+      transition: border-color 0.4s ease, color 0.4s ease, opacity 0.3s ease;
+    }
+    .pod-chip:hover { filter: brightness(1.3); }
+    .pod-chip.is-new  { animation: chip-appear 0.25s ease; }
+    .pod-chip.is-gone { animation: chip-leave  0.25s ease forwards; }
+
+    .pod-dot { width: 5px; height: 5px; border-radius: 50%; background: #444; flex-shrink: 0; }
+
+    .pod-running     { border-color: #1a5c35; color: #4ade80; }
+    .pod-running .pod-dot     { background: #22c55e; box-shadow: 0 0 5px #22c55e; animation: pulse 2.5s infinite; }
+
+    .pod-starting,
+    .pod-pending     { border-color: #3d4f1a; color: #a3e635; }
+    .pod-starting .pod-dot,
+    .pod-pending  .pod-dot    { background: #84cc16; box-shadow: 0 0 5px #84cc16; animation: pulse 1.2s infinite; }
+
+    .pod-terminating { border-color: #4a3000; color: #fbbf24; opacity: 0.6; }
+    .pod-terminating .pod-dot { background: #f59e0b; }
+
+    .pod-error       { border-color: #7f1d1d; color: #f87171; }
+    .pod-error .pod-dot       { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+
+    .pod-stopped,
+    .pod-unknown     { border-color: #2a2a2a; color: #6b7280; }
+    .pod-stopped .pod-dot,
+    .pod-unknown .pod-dot     { background: #4b5563; }
+
+    .pod-restarts { font-size: 9px; color: #666; margin-left: 1px; }
+
+    /* ── Modal ────────────────────────────────────────────── */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.75);
       display: flex; align-items: center; justify-content: center;
@@ -125,7 +188,7 @@
     .modal-target span { color: #e2e8f0; }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
-    /* Event log */
+    /* ── Event log ────────────────────────────────────────── */
     .log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
     .log-title { font-size: 10px; color: #777; letter-spacing: 0.12em; }
     .log-clear { background: #111; border: 1px solid #333; color: #777; font-size: 10px; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; }
@@ -136,9 +199,9 @@
     }
     .log-empty { color: #444; }
     .log-entry { margin-bottom: 2px; }
-    .log-time { color: #444; margin-right: 8px; }
-    .log-info { color: #4ade80; }
-    .log-warn { color: #fbbf24; }
+    .log-time  { color: #444; margin-right: 8px; }
+    .log-info  { color: #4ade80; }
+    .log-warn  { color: #fbbf24; }
     .log-error { color: #f87171; }
 
     .empty-state { color: #666; font-size: 12px; text-align: center; padding: 40px 0; }
@@ -192,8 +255,13 @@
 <script>
   let instances = [];
   let tags = [];
-  // Track optimistic transition states: name -> transient status
+  let lastPodData = {};    // most-recent /api/pods response
   const transitioning = {};
+
+  const POD_STATUS_CLASSES = [
+    'pod-running','pod-starting','pod-pending',
+    'pod-terminating','pod-error','pod-stopped','pod-unknown',
+  ];
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
@@ -211,7 +279,21 @@
     }
   }
 
-  // ── Rendering ─────────────────────────────────────────────────────────────
+  async function loadPods() {
+    try {
+      const res = await fetch('/api/pods');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.error) return;
+      lastPodData = data;
+      reconcileAllPods(data);
+    } catch (_) { /* best-effort */ }
+  }
+
+  // ── Card rendering ────────────────────────────────────────────────────────
+  // Cards are re-rendered fully every 10 s (control plane data). After the
+  // innerHTML replacement, seedPods() re-inserts chips from the last known
+  // pod data without animation so there's no visible gap.
 
   function renderCards() {
     const filter = document.getElementById('filter').value.toLowerCase();
@@ -224,6 +306,7 @@
       return;
     }
     el.innerHTML = filtered.map(card).join('');
+    seedPods(); // restore pod chips immediately, before next 2 s poll
   }
 
   function card(cw) {
@@ -235,25 +318,26 @@
     ).join('');
 
     return `
-    <div class="card" id="card-${cw.name}">
+    <div class="card" id="card-${cw.name}" style="border-left-color:${cw.colour}">
       <div class="card-header">
-        <div>
+        <div style="flex:1;min-width:0">
           <div class="card-name-row">
             <a class="card-name" href="https://${cw.name}.lizardnode.com" target="_blank" rel="noopener">${cw.name}</a>
             ${badge(status)}
+            <span class="card-version">${cw.version}</span>
           </div>
           <div class="card-meta">
             <span>ns: <span style="color:#7c9eb5">${cw.namespace}</span></span>
             <span class="card-meta-sep">·</span>
-            <span><span style="color:#a78bfa">${cw.version}</span></span>
-            <span class="card-meta-sep">·</span>
-            <span>replicas: <span style="color:#e2e8f0">${cw.replicas}</span></span>
-            <span class="card-meta-sep">·</span>
             <span style="display:inline-flex;align-items:center;gap:4px">
-              <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${cw.colour};border:1px solid rgba(255,255,255,0.1)"></span>
+              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${cw.colour};border:1px solid rgba(255,255,255,0.1)"></span>
               ${cw.colour}
             </span>
           </div>
+        </div>
+        <div class="card-tally" id="tally-${cw.name}">
+          <div class="tally-count">- <span style="color:#2a2a2a;font-size:13px">/</span> ${cw.replicas}</div>
+          <div class="tally-label">replicas</div>
         </div>
       </div>
 
@@ -275,12 +359,120 @@
           </div>
         </div>
       </div>
+
+      <div class="pods-row">
+        <div class="pods-section" id="pods-${cw.name}"></div>
+      </div>
     </div>`;
   }
 
   function badge(status) {
     const cls = 'badge-' + status.toLowerCase();
     return `<span class="badge ${cls}"><span class="badge-dot"></span>${status}</span>`;
+  }
+
+  // ── Pod chip management ───────────────────────────────────────────────────
+
+  // Called after renderCards() to repopulate chips from cached data.
+  // No is-new animation — this is a restore after a card re-render, not a
+  // genuinely new pod appearing.
+  function seedPods() {
+    for (const [name, pods] of Object.entries(lastPodData)) {
+      const podsEl = document.getElementById(`pods-${name}`);
+      if (!podsEl) continue;
+      for (const pod of pods) {
+        podsEl.appendChild(buildChip(pod));
+      }
+      updateTally(name, pods);
+    }
+  }
+
+  // Called every 2 s — diffs existing chips against fresh data.
+  function reconcileAllPods(data) {
+    for (const [name, pods] of Object.entries(data)) {
+      const podsEl = document.getElementById(`pods-${name}`);
+      if (!podsEl) continue;
+      reconcilePods(podsEl, pods);
+      updateTally(name, pods);
+    }
+  }
+
+  function reconcilePods(podsEl, pods) {
+    const seen = new Set();
+
+    for (const pod of pods) {
+      seen.add(pod.name);
+      let chipEl = podsEl.querySelector(`[data-pod="${pod.name}"]`);
+      if (!chipEl) {
+        chipEl = buildChip(pod);
+        chipEl.classList.add('is-new');
+        chipEl.addEventListener('animationend', () => chipEl.classList.remove('is-new'), { once: true });
+        podsEl.appendChild(chipEl);
+      } else {
+        updateChip(chipEl, pod);
+      }
+    }
+
+    // Animate out removed pods, then remove the DOM node
+    for (const el of podsEl.querySelectorAll('[data-pod]')) {
+      if (!seen.has(el.dataset.pod) && !el.classList.contains('is-gone')) {
+        el.classList.add('is-gone');
+        el.addEventListener('animationend', () => el.remove(), { once: true });
+      }
+    }
+
+    // Empty-state placeholder
+    const hasChips = podsEl.querySelectorAll('[data-pod]').length > 0;
+    let emptyEl = podsEl.querySelector('.no-pods');
+    if (!hasChips && !emptyEl) {
+      emptyEl = document.createElement('span');
+      emptyEl.className = 'no-pods';
+      emptyEl.textContent = '— no replicas —';
+      podsEl.appendChild(emptyEl);
+    } else if (hasChips && emptyEl) {
+      emptyEl.remove();
+    }
+  }
+
+  function buildChip(pod) {
+    const short = pod.name.split('-').slice(-2).join('-'); // last two segments
+    const el = document.createElement('span');
+    el.dataset.pod    = pod.name;
+    el.dataset.status = pod.status;
+    el.title          = pod.name;
+    el.className      = `pod-chip pod-${pod.status}`;
+    el.innerHTML =
+      `<span class="pod-dot"></span>` +
+      `<span class="pod-short">${short}</span>` +
+      `<span class="pod-restarts"></span>`;
+    updateChip(el, pod);
+    return el;
+  }
+
+  function updateChip(chipEl, pod) {
+    if (chipEl.dataset.status !== pod.status) {
+      chipEl.dataset.status = pod.status;
+      POD_STATUS_CLASSES.forEach(c => chipEl.classList.remove(c));
+      chipEl.classList.add(`pod-${pod.status}`);
+    }
+    const restartEl = chipEl.querySelector('.pod-restarts');
+    const txt = pod.restarts > 0 ? ` ${pod.restarts}↺` : '';
+    if (restartEl.textContent !== txt) restartEl.textContent = txt;
+    const tip = pod.name + (pod.restarts > 0 ? ` · ${pod.restarts} restart(s)` : '');
+    if (chipEl.title !== tip) chipEl.title = tip;
+  }
+
+  function updateTally(name, pods) {
+    const tallyEl = document.getElementById(`tally-${name}`);
+    if (!tallyEl) return;
+    const cw = instances.find(i => i.name === name);
+    const desired  = cw ? (cw.state === 'stopped' ? 0 : cw.replicas) : '?';
+    const running  = pods.filter(p => p.status === 'running').length;
+    const warn     = running < desired;
+    tallyEl.querySelector('.tally-count').innerHTML =
+      `<span class="${warn ? 'tally-warn' : ''}">${running}</span>` +
+      `<span style="color:#2a2a2a;font-size:13px"> / </span>` +
+      `${desired}`;
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
@@ -318,7 +510,9 @@
   }
 
   async function patch(payload) {
-    log(`${payload.name}: ${payload.state === 'stopped' ? 'STOP' : payload.state === 'running' && transitioning[payload.name] === 'Starting' ? 'START' : 'UPDATE'} issued`);
+    const action = payload.state === 'stopped' ? 'STOP'
+      : transitioning[payload.name] === 'Starting' ? 'START' : 'UPDATE';
+    log(`${payload.name}: ${action} issued`);
     try {
       const res = await fetch('/api/colourwaves/patch', {
         method: 'POST',
@@ -334,7 +528,6 @@
     }
   }
 
-  // Poll every 2s for up to 30s until the CR state matches expectation
   function pollUntilSettled(name, attempts = 0) {
     if (attempts > 15) {
       log(`${name}: timed out waiting for reconciliation`, 'warn');
@@ -348,13 +541,12 @@
       const expected = transitioning[name];
       if (!cw || !expected) return;
       const actual = cw.state === 'running' ? 'Running' : 'Stopped';
+      if (expected === 'Updating') {
+        delete transitioning[name];
+        return;
+      }
       if ((expected === 'Stopping' && actual !== 'Stopped') ||
-          (expected === 'Starting' && actual !== 'Running') ||
-          (expected === 'Updating')) {
-        if (expected === 'Updating') {
-          delete transitioning[name];
-          return;
-        }
+          (expected === 'Starting' && actual !== 'Running')) {
         pollUntilSettled(name, attempts + 1);
       } else {
         delete transitioning[name];
@@ -400,7 +592,9 @@
   // ── Init ──────────────────────────────────────────────────────────────────
 
   load();
-  setInterval(load, 10000);
+  loadPods();
+  setInterval(load, 10000);      // control-plane data
+  setInterval(loadPods, 2000);   // live pod status
 </script>
 </body>
 </html>
