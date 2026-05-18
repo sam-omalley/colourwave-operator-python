@@ -257,6 +257,7 @@
   let tags = [];
   let lastPodData = {};    // most-recent /api/pods response
   const transitioning = {};
+  const openPanels = new Set(); // names of instances with version panel open
 
   const POD_STATUS_CLASSES = [
     'pod-running','pod-starting','pod-pending',
@@ -306,6 +307,11 @@
       return;
     }
     el.innerHTML = filtered.map(card).join('');
+    // Restore any panels that were open before the re-render
+    for (const name of openPanels) {
+      const panel = document.getElementById('vp-' + name);
+      if (panel) panel.style.display = 'block';
+    }
     seedPods(); // restore pod chips immediately, before next 2 s poll
   }
 
@@ -479,7 +485,9 @@
 
   function toggleVersionPanel(name) {
     const el = document.getElementById('vp-' + name);
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    const opening = el.style.display === 'none';
+    el.style.display = opening ? 'block' : 'none';
+    opening ? openPanels.add(name) : openPanels.delete(name);
   }
 
   function confirmStop(name, namespace, stopping) {
@@ -504,8 +512,8 @@
   async function applyChange(name, namespace, colour, currentState) {
     const version  = document.getElementById('vs-'  + name).value;
     const replicas = parseInt(document.getElementById('rep-' + name).value, 10);
+    openPanels.delete(name); // close the panel before re-render
     setTransition(name, 'Updating');
-    toggleVersionPanel(name);
     await patch({ name, namespace, state: currentState, version, replicas, colour });
   }
 
