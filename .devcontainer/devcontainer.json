@@ -1,0 +1,31 @@
+{
+    "name": "colourwave-operator-python",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+            "helm": "latest",
+            "minikube": "none"
+        }
+    },
+    "mounts": [
+        {
+            "source": "/run/user/501/podman/podman.sock",
+            "target": "/var/run/docker.sock",
+            "type": "bind"
+        },
+        {
+            "source": "${localEnv:HOME}/.kube",
+            "target": "/home/vscode/.kube",
+            "type": "bind"
+        },
+        {
+            "source": "${localEnv:HOME}/.ssh",
+            "target": "/home/vscode/.ssh",
+            "type": "bind"
+        }
+    ],
+    "containerEnv": {
+        "DOCKER_HOST": "unix:///var/run/docker.sock"
+    },
+    "postCreateCommand": "pip install -r app/requirements.txt -r operator/requirements.txt -r ui/requirements.txt"
+}

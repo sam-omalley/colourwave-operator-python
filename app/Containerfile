@@ -1,0 +1,27 @@
+# Python port of the ColourWave demo app.
+#
+# Go version used a multi-stage build: golang builder → distroless/static.
+# Python has no compilation step, so a single stage is sufficient.
+# python:3.12-slim is the production-grade equivalent of distroless for Python:
+# small image, no shell, minimal attack surface.
+#
+# Build (from this directory):
+#   podman build --platform linux/amd64 -t harbor.lizardnode.com/colourwave/app-py:v0.1.0 .
+# Push:
+#   podman push harbor.lizardnode.com/colourwave/app-py:v0.1.0
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8080
+
+# gunicorn is the production WSGI server. In Go the binary calls
+# http.ListenAndServe directly — Python needs an external server.
+# --workers 2: two worker processes (safe for the 2-replica demo setup)
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "app:app"]

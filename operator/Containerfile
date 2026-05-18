@@ -1,0 +1,23 @@
+# Python port of the ColourWave operator.
+#
+# Go operator compiles to a static binary that runs as ./manager.
+# Python operator runs interpreted via kopf: `kopf run --all-namespaces main.py`
+#
+# Build (from this directory):
+#   podman build --platform linux/amd64 -t harbor.lizardnode.com/colourwave/operator-py:v0.1.0 .
+# Push:
+#   podman push harbor.lizardnode.com/colourwave/operator-py:v0.1.0
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY main.py .
+
+# --all-namespaces: watch ColourWave CRs in every namespace (mirrors
+# kubebuilder's default cluster-scoped watch behaviour).
+# --liveness=http:8080/healthz: expose a health endpoint for Kubernetes probes.
+CMD ["kopf", "run", "--all-namespaces", "--liveness=http:8080/healthz", "main.py"]

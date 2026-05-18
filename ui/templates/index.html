@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operator Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; background: #111; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: #060606;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    .container { max-width: 860px; margin: 0 auto; }
+
+    /* Header */
+    .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-ctrl { font-size: 11px; color: #888; letter-spacing: 0.15em; }
+    .header-divider { color: #444; }
+    .header-title { font-size: 18px; color: #e2e8f0; font-weight: 700; letter-spacing: -0.02em; }
+    .header-ver { font-size: 10px; color: #666; }
+    .header-rule { height: 1px; background: linear-gradient(90deg, #1f1f1f 0%, #111 100%); margin-bottom: 24px; }
+
+    /* Filter */
+    .filter-input {
+      width: 100%; background: #0a0a0a; border: 1px solid #1f1f1f;
+      color: #e2e8f0; padding: 8px 14px; border-radius: 4px;
+      font-size: 12px; font-family: 'IBM Plex Mono', monospace;
+      outline: none; margin-bottom: 20px;
+    }
+    .filter-input:focus { border-color: #333; }
+
+    /* Cards */
+    .card {
+      background: #0a0a0a; border: 1px solid #1f1f1f;
+      border-radius: 8px; padding: 22px; margin-bottom: 16px;
+    }
+
+    .card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+    .card-name { color: #f0f0f0; font-size: 15px; font-weight: 700; margin-right: 10px; text-decoration: none; }
+    .card-name:hover { color: #60a5fa; text-decoration: underline; }
+    .card-meta { font-size: 11px; color: #999; display: flex; flex-wrap: wrap; gap: 0; margin-top: 4px; }
+    .card-meta-sep { color: #555; margin: 0 8px; }
+    .card-updated { font-size: 10px; color: #666; text-align: right; line-height: 1.6; }
+    .card-name-row { display: flex; align-items: center; }
+
+    /* Status badge */
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 4px; letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    .badge-running  { background: #0d2b1a; border: 1px solid #1a5c35; color: #4ade80; }
+    .badge-running .badge-dot  { background: #22c55e; box-shadow: 0 0 6px #22c55e; animation: pulse 2s infinite; }
+    .badge-stopped  { background: #1c1c1c; border: 1px solid #3a3a3a; color: #9ca3af; }
+    .badge-stopped .badge-dot  { background: #6b7280; }
+    .badge-starting { background: #1a1f0d; border: 1px solid #3d4f1a; color: #a3e635; }
+    .badge-starting .badge-dot { background: #84cc16; box-shadow: 0 0 6px #84cc16; animation: pulse 2s infinite; }
+    .badge-stopping { background: #1c1408; border: 1px solid #4a3000; color: #fbbf24; }
+    .badge-stopping .badge-dot { background: #f59e0b; }
+    .badge-updating { background: #0d1a2b; border: 1px solid #1a3d5c; color: #60a5fa; }
+    .badge-updating .badge-dot { background: #3b82f6; box-shadow: 0 0 6px #3b82f6; animation: pulse 2s infinite; }
+
+    /* Buttons */
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .btn {
+      background: transparent; border-radius: 4px; cursor: pointer;
+      font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+      font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 6px 14px; transition: filter 0.15s;
+    }
+    .btn:hover:not(:disabled) { filter: brightness(1.2); }
+    .btn:disabled { background: #111 !important; border-color: #222 !important; color: #444 !important; cursor: not-allowed; }
+    .btn-start   { border: 1px solid #22c55e; color: #22c55e; }
+    .btn-stop    { border: 1px solid #ef4444; color: #ef4444; }
+    .btn-version { border: 1px solid #60a5fa; color: #60a5fa; }
+    .btn-apply   { border: 1px solid #3b82f6; color: #60a5fa; }
+    .btn-cancel  { background: #1a1a1a; border: 1px solid #333; color: #aaa; }
+    .btn-confirm { background: #1a0808; border: 1px solid #ef4444; color: #ef4444; }
+    .btn-confirm-blue { background: #0d1a2b; border: 1px solid #3b82f6; color: #60a5fa; }
+    .btn-confirm-blue:disabled { background: #111 !important; border-color: #222 !important; color: #444 !important; cursor: not-allowed; }
+
+    /* Version picker */
+    .version-panel {
+      background: #0f0f0f; border: 1px solid #2a2a2a;
+      border-radius: 6px; padding: 14px; margin-bottom: 14px;
+    }
+    .version-label { font-size: 11px; color: #666; margin-bottom: 6px; }
+    .version-label span { color: #a78bfa; }
+    .version-select, .replicas-input {
+      width: 100%; background: #111; border: 1px solid #333; color: #e2e8f0;
+      padding: 6px 12px; border-radius: 4px; font-size: 12px;
+      font-family: 'IBM Plex Mono', monospace; margin-top: 8px; cursor: pointer;
+    }
+    .version-select:focus, .replicas-input:focus { outline: none; border-color: #555; }
+    .replicas-input { width: auto; min-width: 80px; }
+    .panel-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; backdrop-filter: blur(2px);
+    }
+    .modal {
+      background: #0f0f0f; border: 1px solid #333;
+      border-radius: 8px; padding: 28px; width: 400px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.8);
+    }
+    .modal-label { font-size: 11px; color: #666; letter-spacing: 0.1em; margin-bottom: 8px; }
+    .modal-title { font-size: 16px; color: #f0f0f0; margin-bottom: 8px; font-weight: 600; }
+    .modal-target { font-size: 12px; color: #888; margin-bottom: 20px; }
+    .modal-target span { color: #e2e8f0; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* Event log */
+    .log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .log-title { font-size: 10px; color: #777; letter-spacing: 0.12em; }
+    .log-clear { background: #111; border: 1px solid #333; color: #777; font-size: 10px; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; }
+    .log-pane {
+      background: #080808; border: 1px solid #1e1e1e;
+      border-radius: 6px; padding: 12px 16px; height: 140px;
+      overflow-y: auto; font-size: 11px;
+    }
+    .log-empty { color: #444; }
+    .log-entry { margin-bottom: 2px; }
+    .log-time { color: #444; margin-right: 8px; }
+    .log-info { color: #4ade80; }
+    .log-warn { color: #fbbf24; }
+    .log-error { color: #f87171; }
+
+    .empty-state { color: #666; font-size: 12px; text-align: center; padding: 40px 0; }
+    .footer { margin-top: 16px; font-size: 10px; color: #555; text-align: center; }
+  </style>
+</head>
+<body>
+<main class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <span class="header-ctrl">CTRL</span>
+      <span class="header-divider">|</span>
+      <span class="header-title">Operator Control</span>
+    </div>
+    <span class="header-ver">colourwave-python.lizardnode.com/v1alpha1</span>
+  </div>
+  <div class="header-rule"></div>
+
+  <!-- Filter -->
+  <input class="filter-input" id="filter" placeholder="Filter by name or namespace…" oninput="renderCards()">
+
+  <!-- Cards -->
+  <div id="cards"></div>
+
+  <!-- Event log -->
+  <div style="margin-top: 24px;">
+    <div class="log-header">
+      <span class="log-title">EVENT LOG</span>
+      <button class="log-clear" onclick="clearLog()">clear</button>
+    </div>
+    <div class="log-pane" id="log"><span class="log-empty">No events yet.</span></div>
+  </div>
+
+  <div class="footer">colourwave-ui · lizardnode.com</div>
+</main>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" style="display:none" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-label">CONFIRM ACTION</div>
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-target" id="modal-target"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-confirm" id="modal-confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let instances = [];
+  let tags = [];
+  // Track optimistic transition states: name -> transient status
+  const transitioning = {};
+
+  // ── Data loading ──────────────────────────────────────────────────────────
+
+  async function load() {
+    try {
+      const [cwRes, tagRes] = await Promise.all([
+        fetch('/api/colourwaves'),
+        fetch('/api/tags'),
+      ]);
+      instances = await cwRes.json();
+      tags = await tagRes.json();
+      renderCards();
+    } catch (e) {
+      log('Failed to load: ' + e.message, 'error');
+    }
+  }
+
+  // ── Rendering ─────────────────────────────────────────────────────────────
+
+  function renderCards() {
+    const filter = document.getElementById('filter').value.toLowerCase();
+    const el = document.getElementById('cards');
+    const filtered = instances.filter(cw =>
+      !filter || cw.name.includes(filter) || cw.namespace.includes(filter)
+    );
+    if (!filtered.length) {
+      el.innerHTML = '<div class="empty-state">No instances match filter.</div>';
+      return;
+    }
+    el.innerHTML = filtered.map(card).join('');
+  }
+
+  function card(cw) {
+    const status = transitioning[cw.name] || (cw.state === 'running' ? 'Running' : 'Stopped');
+    const busy = ['Starting','Stopping','Updating'].includes(status);
+    const isRunning = status === 'Running';
+    const versionOpts = tags.map(t =>
+      `<option value="${t}" ${t === cw.version ? 'selected' : ''}>${t}</option>`
+    ).join('');
+
+    return `
+    <div class="card" id="card-${cw.name}">
+      <div class="card-header">
+        <div>
+          <div class="card-name-row">
+            <a class="card-name" href="https://${cw.name}.lizardnode.com" target="_blank" rel="noopener">${cw.name}</a>
+            ${badge(status)}
+          </div>
+          <div class="card-meta">
+            <span>ns: <span style="color:#7c9eb5">${cw.namespace}</span></span>
+            <span class="card-meta-sep">·</span>
+            <span><span style="color:#a78bfa">${cw.version}</span></span>
+            <span class="card-meta-sep">·</span>
+            <span>replicas: <span style="color:#e2e8f0">${cw.replicas}</span></span>
+            <span class="card-meta-sep">·</span>
+            <span style="display:inline-flex;align-items:center;gap:4px">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${cw.colour};border:1px solid rgba(255,255,255,0.1)"></span>
+              ${cw.colour}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-start"   ${busy || isRunning  ? 'disabled' : ''} onclick="confirmStop('${cw.name}','${cw.namespace}', false)">&#9654; Start</button>
+        <button class="btn btn-stop"    ${busy || !isRunning ? 'disabled' : ''} onclick="confirmStop('${cw.name}','${cw.namespace}', true)">&#9632; Stop</button>
+        <button class="btn btn-version" ${busy ? 'disabled' : ''} onclick="toggleVersionPanel('${cw.name}')">&#8593; Change Version</button>
+      </div>
+
+      <div id="vp-${cw.name}" style="display:none">
+        <div class="version-panel">
+          <div class="version-label">CURRENT VERSION: <span>${cw.version}</span></div>
+          <select class="version-select" id="vs-${cw.name}">${versionOpts}</select>
+          <div class="version-label" style="margin-top:12px">REPLICAS</div>
+          <input class="replicas-input" type="number" id="rep-${cw.name}" value="${cw.replicas}" min="0" max="20">
+          <div class="panel-actions">
+            <button class="btn btn-cancel" onclick="toggleVersionPanel('${cw.name}')">Cancel</button>
+            <button class="btn btn-confirm-blue" onclick="applyChange('${cw.name}','${cw.namespace}','${cw.colour}','${cw.state}')">Apply Update</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function badge(status) {
+    const cls = 'badge-' + status.toLowerCase();
+    return `<span class="badge ${cls}"><span class="badge-dot"></span>${status}</span>`;
+  }
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+
+  function toggleVersionPanel(name) {
+    const el = document.getElementById('vp-' + name);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function confirmStop(name, namespace, stopping) {
+    const action = stopping ? 'Stop Instance' : 'Start Instance';
+    const state  = stopping ? 'stopped' : 'running';
+    document.getElementById('modal-title').textContent  = action;
+    document.getElementById('modal-target').innerHTML   = `Target: <span>${name}</span>`;
+    document.getElementById('modal-confirm').onclick    = () => {
+      closeModal();
+      setTransition(name, stopping ? 'Stopping' : 'Starting');
+      const cw = instances.find(i => i.name === name);
+      patch({ name, namespace, state, version: cw.version, replicas: cw.replicas, colour: cw.colour });
+    };
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal(e) {
+    if (!e || e.target === document.getElementById('modal'))
+      document.getElementById('modal').style.display = 'none';
+  }
+
+  async function applyChange(name, namespace, colour, currentState) {
+    const version  = document.getElementById('vs-'  + name).value;
+    const replicas = parseInt(document.getElementById('rep-' + name).value, 10);
+    setTransition(name, 'Updating');
+    toggleVersionPanel(name);
+    await patch({ name, namespace, state: currentState, version, replicas, colour });
+  }
+
+  async function patch(payload) {
+    log(`${payload.name}: ${payload.state === 'stopped' ? 'STOP' : payload.state === 'running' && transitioning[payload.name] === 'Starting' ? 'START' : 'UPDATE'} issued`);
+    try {
+      const res = await fetch('/api/colourwaves/patch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      pollUntilSettled(payload.name);
+    } catch (e) {
+      log(`${payload.name}: patch failed — ${e.message}`, 'error');
+      delete transitioning[payload.name];
+      renderCards();
+    }
+  }
+
+  // Poll every 2s for up to 30s until the CR state matches expectation
+  function pollUntilSettled(name, attempts = 0) {
+    if (attempts > 15) {
+      log(`${name}: timed out waiting for reconciliation`, 'warn');
+      delete transitioning[name];
+      load();
+      return;
+    }
+    setTimeout(async () => {
+      await load();
+      const cw = instances.find(i => i.name === name);
+      const expected = transitioning[name];
+      if (!cw || !expected) return;
+      const actual = cw.state === 'running' ? 'Running' : 'Stopped';
+      if ((expected === 'Stopping' && actual !== 'Stopped') ||
+          (expected === 'Starting' && actual !== 'Running') ||
+          (expected === 'Updating')) {
+        if (expected === 'Updating') {
+          delete transitioning[name];
+          return;
+        }
+        pollUntilSettled(name, attempts + 1);
+      } else {
+        delete transitioning[name];
+        log(`${name}: settled → ${actual}`);
+        renderCards();
+      }
+    }, 2000);
+  }
+
+  function setTransition(name, status) {
+    transitioning[name] = status;
+    renderCards();
+  }
+
+  // ── Event log ─────────────────────────────────────────────────────────────
+
+  const logEntries = [];
+
+  function log(msg, level = 'info') {
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+    logEntries.push({ time, msg, level });
+    if (logEntries.length > 200) logEntries.shift();
+    renderLog();
+  }
+
+  function renderLog() {
+    const el = document.getElementById('log');
+    if (!logEntries.length) {
+      el.innerHTML = '<span class="log-empty">No events yet.</span>';
+      return;
+    }
+    el.innerHTML = logEntries.map(e =>
+      `<div class="log-entry log-${e.level}"><span class="log-time">${e.time}</span>${e.msg}</div>`
+    ).join('');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function clearLog() {
+    logEntries.length = 0;
+    renderLog();
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+
+  load();
+  setInterval(load, 10000);
+</script>
+</body>
+</html>
