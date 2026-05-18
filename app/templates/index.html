@@ -12,8 +12,9 @@
     ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
 
     @keyframes pulse       { 0%,100%{opacity:1}      50%{opacity:0.35} }
-    @keyframes fade-in     { from{opacity:0;transform:scale(.92)} to{opacity:1;transform:scale(1)} }
+    @keyframes fade-in     { from{opacity:0;transform:scale(.94)} to{opacity:1;transform:scale(1)} }
     @keyframes chip-appear { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes chip-leave  { from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(.85)} }
 
     body {
       font-family: 'IBM Plex Mono', monospace;
@@ -43,8 +44,9 @@
       border-radius: 6px;
       padding: 18px 20px 14px;
       margin-bottom: 14px;
-      animation: fade-in 0.2s ease;
     }
+    /* Animations only fire when the class is explicitly added by JS */
+    .cw-card.is-new { animation: fade-in 0.2s ease; }
 
     .cw-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
     .cw-name-row { display: flex; align-items: center; gap: 10px; }
@@ -92,10 +94,11 @@
       padding: 4px 9px;
       font-size: 10px; font-family: 'IBM Plex Mono', monospace;
       cursor: default; user-select: none;
-      transition: border-color 0.3s, opacity 0.3s;
-      animation: chip-appear 0.25s ease;
+      transition: border-color 0.4s ease, color 0.4s ease, opacity 0.3s ease;
     }
     .pod-chip:hover { filter: brightness(1.3); }
+    .pod-chip.is-new  { animation: chip-appear 0.25s ease; }
+    .pod-chip.is-gone { animation: chip-leave 0.25s ease forwards; }
 
     .pod-dot { width: 5px; height: 5px; border-radius: 50%; background: #444; flex-shrink: 0; }
 
@@ -162,11 +165,13 @@
 </main>
 
 <script>
-  // The pod name of the replica currently serving this request.
-  // Used to highlight "you are here" in the pod grid.
+  // The pod name of the replica serving this request — highlighted with ◄
   const SELF = "{{ hostname }}";
 
-  let lastInstances = [];
+  const POD_STATUS_CLASSES = [
+    'pod-running','pod-starting','pod-pending',
+    'pod-terminating','pod-error','pod-stopped','pod-unknown'
+  ];
 
   // ── Fetch ───────────────────────────────────────────────────────────────
 
@@ -174,9 +179,9 @@
     try {
       const res = await fetch('/api/instances');
       if (!res.ok) throw new Error(await res.text());
-      lastInstances = await res.json();
-      if (lastInstances.error) throw new Error(lastInstances.error);
-      render(lastInstances);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      reconcile(data);
       document.getElementById('updated').textContent =
         'updated ' + new Date().toLocaleTimeString('en-US', { hour12: false });
     } catch(e) {
@@ -185,84 +190,182 @@
     }
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  // ── Reconcile cards ─────────────────────────────────────────────────────
+  // Diff the live data against the DOM. Only create/destroy/mutate nodes
+  // that actually changed so animations don't fire on every poll tick.
 
-  function render(instances) {
-    const el = document.getElementById('cards');
+  function reconcile(instances) {
+    const container = document.getElementById('cards');
+
     if (!instances.length) {
-      el.innerHTML = '<div class="state-empty">no ColourWave instances found</div>';
+      container.innerHTML = '<div class="state-empty">no ColourWave instances found</div>';
       return;
     }
-    // Preserve existing card DOM nodes where possible so chips don't flicker.
-    // Simple approach: re-render all, but CSS animation only fires on new elements.
-    el.innerHTML = instances.map(cwCard).join('');
+
+    const seen = new Set();
+
+    for (const cw of instances) {
+      seen.add(cw.name);
+      let cardEl = document.getElementById(`card-${cw.name}`);
+
+      if (!cardEl) {
+        cardEl = buildCard(cw);
+        cardEl.classList.add('is-new');
+        cardEl.addEventListener('animationend', () => cardEl.classList.remove('is-new'), { once: true });
+        container.appendChild(cardEl);
+      } else {
+        updateCard(cardEl, cw);
+      }
+    }
+
+    // Remove cards for instances that no longer exist
+    for (const el of container.querySelectorAll('.cw-card')) {
+      if (!seen.has(el.dataset.name)) el.remove();
+    }
   }
 
-  function cwCard(cw) {
-    const running     = cw.pods.filter(p => p.status === 'running').length;
-    const terminating = cw.pods.filter(p => p.status === 'terminating').length;
-    const desired     = cw.state === 'stopped' ? 0 : cw.replicas;
+  // ── Build a card from scratch ────────────────────────────────────────────
 
-    const tallyClass  = running < desired ? 'style="color:#fbbf24"' : '';
+  function buildCard(cw) {
+    const el = document.createElement('div');
+    el.className = 'cw-card';
+    el.id = `card-${cw.name}`;
+    el.dataset.name = cw.name;
+    el.style.borderLeftColor = cw.colour;
 
-    return `
-    <div class="cw-card" style="border-left-color:${cw.colour}">
+    el.innerHTML = `
       <div class="cw-header">
         <div>
           <div class="cw-name-row">
             <a class="cw-name"
                href="https://${cw.name}.lizardnode.com"
                target="_blank" rel="noopener">${cw.name}</a>
-            ${badge(cw.state)}
+            <span class="cw-badge"></span>
           </div>
           <div class="cw-meta">
-            <span class="cw-version">${cw.version}</span>
+            <span class="cw-version"></span>
             <span class="cw-meta-sep">·</span>
             <span class="cw-ns">${cw.namespace}</span>
             <span class="cw-meta-sep">·</span>
-            <span style="display:inline-block;width:8px;height:8px;border-radius:2px;
+            <span class="cw-colour-swatch"
+                  style="display:inline-block;width:8px;height:8px;border-radius:2px;
                          background:${cw.colour};border:1px solid rgba(255,255,255,0.12);
                          vertical-align:middle"></span>
           </div>
         </div>
         <div class="cw-tally">
-          <span class="cw-tally-num" ${tallyClass}>${running}</span>
-          <span style="color:#333">/</span>
-          <span class="cw-tally-num">${desired}</span>
-          <br>
-          <span>${terminating > 0 ? terminating + ' terminating' : 'replicas'}</span>
+          <span class="cw-tally-running"></span><span style="color:#333">/</span><span class="cw-tally-desired"></span>
+          <br><span class="cw-tally-label"></span>
         </div>
       </div>
-      <div class="pods">
-        ${cw.pods.length
-          ? cw.pods.map(podChip).join('')
-          : '<span class="no-pods">— no replicas —</span>'}
-      </div>
-    </div>`;
+      <div class="pods"></div>`;
+
+    updateCard(el, cw);
+    return el;
   }
 
-  function badge(state) {
-    if (state === 'running') {
-      return `<span class="badge badge-running"><span class="badge-dot"></span>Running</span>`;
+  // ── Update a card's mutable parts in-place ───────────────────────────────
+
+  function updateCard(cardEl, cw) {
+    const running     = cw.pods.filter(p => p.status === 'running').length;
+    const desired     = cw.state === 'stopped' ? 0 : cw.replicas;
+    const terminating = cw.pods.filter(p => p.status === 'terminating').length;
+
+    // State badge
+    const badgeEl = cardEl.querySelector('.cw-badge');
+    if (badgeEl.dataset.state !== cw.state) {
+      badgeEl.dataset.state = cw.state;
+      badgeEl.className = `cw-badge badge ${cw.state === 'running' ? 'badge-running' : 'badge-stopped'}`;
+      badgeEl.innerHTML = `<span class="badge-dot"></span>${cw.state === 'running' ? 'Running' : 'Stopped'}`;
     }
-    return `<span class="badge badge-stopped"><span class="badge-dot"></span>Stopped</span>`;
+
+    // Version (may change on rolling update)
+    const versionEl = cardEl.querySelector('.cw-version');
+    if (versionEl.textContent !== cw.version) versionEl.textContent = cw.version;
+
+    // Tally
+    const runningEl = cardEl.querySelector('.cw-tally-running');
+    const desiredEl = cardEl.querySelector('.cw-tally-desired');
+    const labelEl   = cardEl.querySelector('.cw-tally-label');
+    runningEl.textContent    = running;
+    runningEl.style.color    = running < desired ? '#fbbf24' : '';
+    desiredEl.textContent    = desired;
+    labelEl.textContent      = terminating > 0 ? `${terminating} terminating` : 'replicas';
+
+    // Pod chips
+    reconcilePods(cardEl.querySelector('.pods'), cw.pods);
   }
 
-  function podChip(pod) {
-    const isSelf  = pod.name === SELF;
-    // Show just the last segment of the pod name (the 5-char random suffix)
-    const short   = pod.name.split('-').slice(-1)[0];
-    const restartHtml = pod.restarts > 0
-      ? `<span class="pod-restarts">${pod.restarts}↺</span>`
-      : '';
-    const selfHtml = isSelf
-      ? `<span class="pod-self-label">◄</span>`
-      : '';
+  // ── Reconcile pod chips inside a card ────────────────────────────────────
 
-    return `<span class="pod-chip pod-${pod.status}${isSelf ? ' pod-self' : ''}"
-                  title="${pod.name}${pod.restarts > 0 ? ' · ' + pod.restarts + ' restart(s)' : ''}">
-      <span class="pod-dot"></span>${short}${restartHtml}${selfHtml}
-    </span>`;
+  function reconcilePods(podsEl, pods) {
+    const seen = new Set();
+
+    for (const pod of pods) {
+      seen.add(pod.name);
+      let chipEl = podsEl.querySelector(`[data-pod="${pod.name}"]`);
+
+      if (!chipEl) {
+        chipEl = buildChip(pod);
+        chipEl.classList.add('is-new');
+        chipEl.addEventListener('animationend', () => chipEl.classList.remove('is-new'), { once: true });
+        podsEl.appendChild(chipEl);
+      } else {
+        updateChip(chipEl, pod);
+      }
+    }
+
+    // Remove chips for pods that are gone — animate out first
+    for (const el of podsEl.querySelectorAll('[data-pod]')) {
+      if (!seen.has(el.dataset.pod) && !el.classList.contains('is-gone')) {
+        el.classList.add('is-gone');
+        el.addEventListener('animationend', () => el.remove(), { once: true });
+      }
+    }
+
+    // Empty-state label
+    let emptyEl = podsEl.querySelector('.no-pods');
+    const hasChips = podsEl.querySelectorAll('[data-pod]').length > 0;
+    if (!hasChips && !emptyEl) {
+      emptyEl = document.createElement('span');
+      emptyEl.className = 'no-pods';
+      emptyEl.textContent = '— no replicas —';
+      podsEl.appendChild(emptyEl);
+    } else if (hasChips && emptyEl) {
+      emptyEl.remove();
+    }
+  }
+
+  function buildChip(pod) {
+    const isSelf = pod.name === SELF;
+    const short  = pod.name.split('-').slice(-1)[0];
+    const el     = document.createElement('span');
+    el.dataset.pod    = pod.name;
+    el.dataset.status = pod.status;
+    el.title          = pod.name;
+    el.className      = `pod-chip pod-${pod.status}${isSelf ? ' pod-self' : ''}`;
+    el.innerHTML = `<span class="pod-dot"></span>`
+      + `<span class="pod-short">${short}</span>`
+      + `<span class="pod-restarts"></span>`
+      + (isSelf ? `<span class="pod-self-label">◄</span>` : '');
+    updateChip(el, pod);
+    return el;
+  }
+
+  function updateChip(chipEl, pod) {
+    // Status classes — CSS transitions handle the colour change smoothly
+    if (chipEl.dataset.status !== pod.status) {
+      chipEl.dataset.status = pod.status;
+      POD_STATUS_CLASSES.forEach(c => chipEl.classList.remove(c));
+      chipEl.classList.add(`pod-${pod.status}`);
+    }
+    // Restart counter
+    const restartEl = chipEl.querySelector('.pod-restarts');
+    const txt = pod.restarts > 0 ? ` ${pod.restarts}↺` : '';
+    if (restartEl.textContent !== txt) restartEl.textContent = txt;
+    // Tooltip
+    const tip = pod.name + (pod.restarts > 0 ? ` · ${pod.restarts} restart(s)` : '');
+    if (chipEl.title !== tip) chipEl.title = tip;
   }
 
   // ── Init ────────────────────────────────────────────────────────────────
